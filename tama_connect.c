@@ -486,8 +486,10 @@ typedef enum {
 } TamaGameResult;
 
 typedef enum {
+    TamaGameBalloon = 2,
     TamaGamePoints = 7,
 } TamaGame;
+
 
 
 /* ---------- Gift test: Cone ---------- */
@@ -641,8 +643,10 @@ static bool tama_game(
     tama_set_byte(message1, 18, (uint8_t)game);
     tama_set_byte(message3, 18, (uint8_t)game);
 
-    /* Byte 17 = Gotchi Points wager */
-    tama_set_byte(message3, 17, amount);
+    if(game == TamaGamePoints) {
+        /* Byte 17 = Gotchi Points wager */
+        tama_set_byte(message3, 17, amount);
+    }
 
     /*
      * Points game result:
@@ -672,7 +676,7 @@ static bool tama_game(
      * odd  = real Tamagotchi wins
      * even = real Tamagotchi loses
      */
-    if(game == TamaGamePoints) {
+    if(game == TamaGamePoints || game == TamaGameBalloon) {
         tama_set_bit(message3, 19, 8, tama_wins);
     }
 
@@ -1362,6 +1366,10 @@ static TamaAction tama_choose_game(
         menu, "Points", TamaGamePoints,
         tama_game_selected, state);
 
+    submenu_add_item(
+        menu, "Balloon", TamaGameBalloon,
+        tama_game_selected, state);
+
     TamaAction action =
         tama_wait(state, view_holder, submenu_get_view(menu));
 
@@ -1634,12 +1642,21 @@ static void tama_run_connection(
             "Press B at STAND BY\n\n"
             "Waiting...");
     } else {
-        text_box_set_text(
-            text_box,
-            "TamaConnect\n\n"
-            "Connect > Game\n"
-            "Points\n\n"
-            "Starting...");
+        if(state->game == TamaGameBalloon) {
+            text_box_set_text(
+                text_box,
+                "TamaConnect\n\n"
+                "Connect > Game\n"
+                "Balloon\n\n"
+                "Starting...");
+        } else {
+            text_box_set_text(
+                text_box,
+                "TamaConnect\n\n"
+                "Connect > Game\n"
+                "Points\n\n"
+                "Starting...");
+        }
     }
 
     /*
@@ -1885,6 +1902,20 @@ int32_t tama_connect(void* arg) {
                 continue;
             }
 
+
+            if(state.game == TamaGameBalloon) {
+                action =
+                    tama_choose_game_result(
+                        &state,
+                        view_holder);
+
+                if(action == TamaActionBack) {
+                    continue;
+                }
+
+                tama_run_connection(&state, view_holder);
+                continue;
+            }
 
             action =
                 tama_choose_game_amount(
